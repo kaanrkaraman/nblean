@@ -15,6 +15,7 @@ use zeromq::{DealerSocket, Socket, SocketRecv, SocketSend, SubSocket, ZmqMessage
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const READY_PROBE: Duration = Duration::from_millis(50);
+const IO_TIMEOUT: Duration = Duration::from_secs(10);
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 const LOG_TAIL: usize = 15;
 
@@ -292,14 +293,19 @@ impl Client {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        let (shell, iopub) = runtime.block_on(async {
-            let mut shell = DealerSocket::new();
-            shell.connect(&endpoint("shell_port")).await?;
-            let mut iopub = SubSocket::new();
-            iopub.connect(&endpoint("iopub_port")).await?;
-            iopub.subscribe("").await?;
-            anyhow::Ok((shell, iopub))
-        })?;
+        let sockets = runtime.block_on(async {
+            tokio::time::timeout(IO_TIMEOUT, async {
+                let mut shell = DealerSocket::new();
+                shell.connect(&endpoint("shell_port")).await?;
+                let mut iopub = SubSocket::new();
+                iopub.connect(&endpoint("iopub_port")).await?;
+                iopub.subscribe("").await?;
+                anyhow::Ok((shell, iopub))
+            })
+            .await
+        });
+        let (shell, iopub) =
+            sockets.map_err(|_| anyhow::anyhow!("timed out connecting to the kernel"))??;
         let mut client = Self {
             shell,
             iopub,
@@ -344,7 +350,9 @@ impl Client {
         .collect();
         let message =
             ZmqMessage::try_from(frames).map_err(|_| anyhow::anyhow!("empty kernel message"))?;
-        self.runtime.block_on(self.shell.send(message))?;
+        self.runtime
+            .block_on(async { tokio::time::timeout(IO_TIMEOUT, self.shell.send(message)).await })
+            .map_err(|_| anyhow::anyhow!("timed out sending {msg_type} to the kernel"))??;
         Ok(msg_id)
     }
 
