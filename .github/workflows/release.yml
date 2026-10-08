@@ -19,6 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - if: runner.os != 'Linux'
+        run: rustup update stable && rustup default stable && rustup target add ${{ matrix.target }}
       - uses: PyO3/maturin-action@v1.51.0
         with:
           target: ${{ matrix.target }}
