@@ -1,0 +1,52 @@
+[package]
+name = "nblean"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.99"
+description = "Token-lean Jupyter notebook access for coding agents: outlines, clipped outputs, images as files, a persistent kernel."
+authors = ["Recep Kaan Karaman <kaanrkaraman@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/kaanrkaraman/nblean"
+homepage = "https://github.com/kaanrkaraman/nblean"
+readme = "README.md"
+keywords = ["jupyter", "notebook", "ipynb", "llm", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [".github/", ".claude-plugin/"]
+
+[dependencies]
+anyhow = "1.0.104"
+base64 = "0.23.1"
+bytes = "1.12.1"
+clap = { version = "4.6.7", features = ["derive"] }
+hex = "0.4.3"
+hmac = "0.13.0"
+jiff = "0.2.38"
+regex = "1.13.1"
+serde = "1.0.229"
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+tokio = { version = "1.53.2", features = ["rt", "time"] }
+uuid = { version = "1.27.0", features = ["v4"] }
+zeromq = { version = "0.6.0", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.5", features = ["process"] }
+
+[dev-dependencies]
+serde_json = "1.0.151"
+tempfile = "3.27.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+dbg_macro = "warn"
+todo = "warn"
+missing_errors_doc = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

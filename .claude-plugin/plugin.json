@@ -1,6 +1,6 @@
 {
   "name": "nblean",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skill that has the agent use the nblean CLI for Jupyter notebooks: outlines, clipped outputs, images as files, and a persistent kernel.",
   "author": { "name": "Recep Kaan Karaman" },
   "homepage": "https://github.com/kaanrkaraman/nblean",

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, rust]
   pull_request:
 
 concurrency:
@@ -15,15 +15,21 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - run: rustup update stable && rustup default stable && rustup component add clippy rustfmt
       - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          python-version: ${{ matrix.python }}
-      - run: uv sync --locked
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - name: Kernel environment
+        shell: bash
+        run: |
+          uv venv kenv --python 3.13
+          uv pip install --python kenv ipykernel
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "NBLEAN_TEST_PYTHON=$GITHUB_WORKSPACE\\kenv\\Scripts\\python.exe" >> "$GITHUB_ENV"
+          else
+            echo "NBLEAN_TEST_PYTHON=$GITHUB_WORKSPACE/kenv/bin/python" >> "$GITHUB_ENV"
+          fi
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test

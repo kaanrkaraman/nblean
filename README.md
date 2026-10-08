@@ -6,7 +6,6 @@
 <p align="center">
   <a href="https://github.com/kaanrkaraman/nblean/actions/workflows/ci.yml"><img src="https://github.com/kaanrkaraman/nblean/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/nblean/"><img src="https://img.shields.io/pypi/v/nblean" alt="PyPI"></a>
-  <a href="https://pypi.org/project/nblean/"><img src="https://img.shields.io/pypi/pyversions/nblean" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
@@ -87,6 +86,12 @@ nblean --help
 ```
 
 You can also run it without installing: `uvx nblean outline nb.ipynb`.
+
+nblean is a single Rust binary. The PyPI package ships prebuilt wheels for macOS
+(Apple Silicon and Intel), Linux (x86_64 and aarch64), and Windows (x64), so
+installing it does not pull in any Python dependencies. On other platforms pip builds
+it from source, which needs a Rust toolchain. To build from the repository:
+`cargo install --git https://github.com/kaanrkaraman/nblean`.
 
 The kernel runs in the notebook's own environment, not in nblean's. nblean picks the
 nearest `.venv` above the notebook, which needs `ipykernel` installed
@@ -230,10 +235,28 @@ nblean ships as a CLI and a skill instead of an MCP server. An MCP server's tool
 definitions are loaded into every session. A skill is loaded only when a notebook
 comes up.
 
+## Speed
+
+Version 0.1 was written in Python. Version 0.2 is the same CLI rewritten in Rust,
+and it produces byte-identical output. Startup time dropped from about 90 ms to
+2 ms per call. Commands that talk to a running kernel dropped from about 345 ms to
+7 ms.
+
+| Command | Python 0.1 | Rust 0.2 |
+|---|---:|---:|
+| `outline` on a 7 MB notebook | 109 ms | 6 ms |
+| `show 0-5` on a 7 MB notebook | 111 ms | 6 ms |
+| `eval` against a running kernel | 346 ms | 7 ms |
+| `run` one cell against a running kernel | 349 ms | 11 ms |
+| starting a kernel | 308 ms | 211 ms |
+
+Measured with hyperfine on an Apple Silicon Mac, mean of at least 20 runs. Kernel
+start time is mostly ipykernel's own startup.
+
 ## Platform Support
 
-macOS, Linux, and Windows, on Python 3.13+. The kernel's Python can be any version
-that `ipykernel` supports.
+macOS, Linux, and Windows. The kernel's Python can be any version that `ipykernel`
+supports.
 
 ## Limitations
 
@@ -244,10 +267,13 @@ that `ipykernel` supports.
 ## Contributing
 
 ```bash
-uv sync
-uv run pytest
-uv run ruff check . && uv run mypy
+cargo test
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
 ```
+
+The kernel test needs a Python with `ipykernel`. Point `NBLEAN_TEST_PYTHON` at it if
+`python3` on your PATH does not have it.
 
 ## License
 
