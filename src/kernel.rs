@@ -1,6 +1,5 @@
-use std::fs::{self, File};
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -21,17 +20,57 @@ const LOG_TAIL: usize = 15;
 
 #[cfg(unix)]
 mod platform {
+    use std::fs::File;
     use std::os::unix::process::CommandExt;
-    use std::process::Command;
+    use std::path::Path;
+    use std::process::{Child, Command, Stdio};
 
+    use anyhow::Context;
     use rustix::process::{Pid, Signal, kill_process_group, test_kill_process};
     use serde_json::Value;
 
     pub const VENV_PYTHON: [&str; 2] = ["bin", "python"];
     pub const FALLBACK_PYTHON: &str = "python3";
 
-    pub fn detach(command: &mut Command) {
-        command.process_group(0);
+    pub struct Launched {
+        child: Child,
+    }
+
+    impl Launched {
+        pub fn pid(&self) -> u32 {
+            self.child.id()
+        }
+
+        pub fn exited(&mut self) -> bool {
+            self.child
+                .try_wait()
+                .map_or(true, |status| status.is_some())
+        }
+
+        pub fn kill(&mut self) {
+            let _ = self.child.kill();
+        }
+    }
+
+    pub fn launch(
+        interpreter: &Path,
+        connection: &Path,
+        log_path: &Path,
+        workdir: &Path,
+    ) -> anyhow::Result<Launched> {
+        let log = File::create(log_path)?;
+        let child = Command::new(interpreter)
+            .args(["-m", "ipykernel_launcher", "-f"])
+            .arg(connection)
+            .current_dir(workdir)
+            .env_remove("JPY_PARENT_PID")
+            .stdin(Stdio::null())
+            .stdout(log.try_clone()?)
+            .stderr(log)
+            .process_group(0)
+            .spawn()
+            .with_context(|| format!("cannot launch {}", interpreter.display()))?;
+        Ok(Launched { child })
     }
 
     fn pid_of(pid: u32) -> Option<Pid> {
@@ -53,21 +92,81 @@ mod platform {
 mod platform {
     use std::net::{SocketAddr, TcpStream};
     use std::os::windows::process::CommandExt;
-    use std::process::Command;
+    use std::path::Path;
+    use std::process::{Command, Stdio};
     use std::time::Duration;
 
+    use anyhow::{Context, bail};
     use serde_json::Value;
 
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
 
     pub const VENV_PYTHON: [&str; 2] = ["Scripts", "python.exe"];
     pub const FALLBACK_PYTHON: &str = "python";
 
-    pub fn detach(command: &mut Command) {
-        command.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
+    const LAUNCHER: &str = "import importlib.util, subprocess, sys
+if importlib.util.find_spec('ipykernel') is None:
+    sys.exit('ipykernel is not installed for ' + sys.executable)
+log = open(sys.argv[2], 'wb')
+kernel = subprocess.Popen(
+    [sys.executable, '-m', 'ipykernel_launcher', '-f', sys.argv[1]],
+    cwd=sys.argv[3], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+)
+print(kernel.pid)
+";
+
+    pub struct Launched {
+        pid: u32,
+    }
+
+    impl Launched {
+        pub fn pid(&self) -> u32 {
+            self.pid
+        }
+
+        pub fn exited(&mut self) -> bool {
+            let pid = self.pid;
+            Command::new("tasklist")
+                .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .is_ok_and(|output| {
+                    !String::from_utf8_lossy(&output.stdout).contains(&format!("\"{pid}\""))
+                })
+        }
+
+        pub fn kill(&mut self) {
+            terminate_tree(self.pid);
+        }
+    }
+
+    pub fn launch(
+        interpreter: &Path,
+        connection: &Path,
+        log_path: &Path,
+        workdir: &Path,
+    ) -> anyhow::Result<Launched> {
+        let output = Command::new(interpreter)
+            .args(["-c", LAUNCHER])
+            .arg(connection)
+            .arg(log_path)
+            .arg(workdir)
+            .env_remove("JPY_PARENT_PID")
+            .stdin(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .with_context(|| format!("cannot launch {}", interpreter.display()))?;
+        if !output.status.success() {
+            bail!(
+                "kernel exited using {}:\n{}\nis ipykernel installed there? `uv add --dev ipykernel`",
+                interpreter.display(),
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+        let pid = String::from_utf8_lossy(&output.stdout).trim().parse()?;
+        Ok(Launched { pid })
     }
 
     pub fn is_running(_pid: u32, connection: &Value) -> bool {
@@ -192,24 +291,14 @@ pub fn start(notebook: &Path, python: Option<&Path>) -> anyhow::Result<()> {
     let workdir = parent_dir(notebook);
     let interpreter = python.map_or_else(|| find_python(&workdir), Path::to_owned);
     let log_path = state.join("kernel.log");
-    let log = File::create(&log_path)?;
-    let mut command = Command::new(&interpreter);
-    command
-        .args(["-m", "ipykernel_launcher", "-f"])
-        .arg(&connection)
-        .current_dir(&workdir)
-        .env_remove("JPY_PARENT_PID")
-        .stdin(Stdio::null())
-        .stdout(log.try_clone()?)
-        .stderr(log);
-    platform::detach(&mut command);
-    let mut kernel = command
-        .spawn()
-        .with_context(|| format!("cannot launch {}", interpreter.display()))?;
-    fs::write(state.join("kernel.pid"), kernel.id().to_string())?;
+    let mut kernel = platform::launch(&interpreter, &connection, &log_path, &workdir)?;
+    fs::write(state.join("kernel.pid"), kernel.pid().to_string())?;
     let deadline = Instant::now() + STARTUP_TIMEOUT;
     while Instant::now() < deadline {
-        if kernel.try_wait()?.is_some() {
+        if read_connection(&state).is_some() {
+            return Ok(());
+        }
+        if kernel.exited() {
             let log_text = fs::read_to_string(&log_path).unwrap_or_default();
             let lines: Vec<&str> = log_text.lines().collect();
             let tail = lines[lines.len().saturating_sub(LOG_TAIL)..].join("\n");
@@ -218,12 +307,9 @@ pub fn start(notebook: &Path, python: Option<&Path>) -> anyhow::Result<()> {
                 interpreter.display()
             );
         }
-        if read_connection(&state).is_some() {
-            return Ok(());
-        }
         sleep(POLL_INTERVAL);
     }
-    kernel.kill()?;
+    kernel.kill();
     bail!(
         "kernel did not start within {}s, see {}",
         STARTUP_TIMEOUT.as_secs(),
