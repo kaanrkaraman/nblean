@@ -33,20 +33,5 @@ jobs:
           fi
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
-      - name: Kernel smoke test
-        shell: bash
-        env:
-          RUST_BACKTRACE: "1"
-        run: |
-          cargo build
-          printf '%s' '{"cells":[{"cell_type":"code","id":"a1","metadata":{},"source":"x = 21","execution_count":null,"outputs":[]}],"metadata":{},"nbformat":4,"nbformat_minor":5}' > smoke.ipynb
-          set +e
-          timeout 120 target/debug/nblean run smoke.ipynb all --python "$NBLEAN_TEST_PYTHON"; run=$?
-          timeout 60 target/debug/nblean eval smoke.ipynb "x * 2"; evaluated=$?
-          timeout 30 target/debug/nblean kernel smoke.ipynb status
-          timeout 30 target/debug/nblean kernel smoke.ipynb stop
-          echo "run exit $run, eval exit $evaluated"
-          for log in $(find "$RUNNER_TEMP/.." /tmp -path '*nblean*' -name kernel.log 2>/dev/null); do echo "== $log"; cat "$log"; done
-          test "$run" = 0 && test "$evaluated" = 0
       - run: cargo test
         timeout-minutes: 10

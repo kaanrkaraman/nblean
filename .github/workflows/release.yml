@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   wheels:
@@ -55,4 +55,8 @@ jobs:
           merge-multiple: true
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "nblean ${GITHUB_REF_NAME#v}" --notes "See the README for install commands. PyPI: https://pypi.org/project/nblean/"
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "nblean ${GITHUB_REF_NAME#v}" \
+            --notes "Install with uv tool install nblean. See the README for details."
