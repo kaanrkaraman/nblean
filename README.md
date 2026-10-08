@@ -6,6 +6,7 @@
 <p align="center">
   <a href="https://github.com/kaanrkaraman/nblean/actions/workflows/ci.yml"><img src="https://github.com/kaanrkaraman/nblean/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/nblean/"><img src="https://img.shields.io/pypi/v/nblean" alt="PyPI"></a>
+  <a href="https://crates.io/crates/nblean"><img src="https://img.shields.io/crates/v/nblean" alt="crates.io"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
@@ -81,8 +82,9 @@ first step saves.
 ## Installation
 
 ```bash
-uv tool install nblean        # or: pipx install nblean
-nblean --help
+uv tool install nblean                    # PyPI, or: pipx install nblean
+brew install kaanrkaraman/tap/nblean      # Homebrew
+cargo install nblean                      # crates.io
 ```
 
 You can also run it without installing: `uvx nblean outline nb.ipynb`.
@@ -90,8 +92,7 @@ You can also run it without installing: `uvx nblean outline nb.ipynb`.
 nblean is a single Rust binary. The PyPI package ships prebuilt wheels for macOS
 (Apple Silicon and Intel), Linux (x86_64 and aarch64), and Windows (x64), so
 installing it does not pull in any Python dependencies. On other platforms pip builds
-it from source, which needs a Rust toolchain. To build from the repository:
-`cargo install --git https://github.com/kaanrkaraman/nblean`.
+it from source, which needs a Rust toolchain.
 
 The kernel runs in the notebook's own environment, not in nblean's. nblean picks the
 nearest `.venv` above the notebook, which needs `ipykernel` installed
