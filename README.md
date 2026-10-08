@@ -221,7 +221,6 @@ commands.
 | Codex | `--agent codex` | `~/.agents/skills/nblean` |
 | OpenCode | `--agent opencode` | `~/.agents/skills/nblean` |
 | Gemini CLI | `--agent gemini` | `~/.gemini/skills/nblean` |
-| Others | `npx skills add kaanrkaraman/nblean` | per agent |
 
 In Claude Code the skill is also available as a plugin:
 
