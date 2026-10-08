@@ -1,0 +1,12 @@
+{
+  "name": "nblean",
+  "description": "nblean skill for working with Jupyter notebooks",
+  "owner": { "name": "Recep Kaan Karaman" },
+  "plugins": [
+    {
+      "name": "nblean",
+      "source": "./",
+      "description": "Has the agent use the nblean CLI instead of reading .ipynb files."
+    }
+  ]
+}

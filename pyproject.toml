@@ -1,0 +1,78 @@
+[project]
+name = "nblean"
+version = "0.1.0"
+description = "Token-lean Jupyter notebook access for coding agents: outlines, clipped outputs, lazy images, a persistent kernel."
+readme = "README.md"
+authors = [{ name = "Recep Kaan Karaman", email = "kaanrkaraman@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+keywords = ["jupyter", "notebook", "ipynb", "llm", "coding-agent", "claude-code", "tokens", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Framework :: Jupyter",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+dependencies = ["jupyter-client>=8.10.0"]
+
+[project.urls]
+Homepage = "https://github.com/kaanrkaraman/nblean"
+Repository = "https://github.com/kaanrkaraman/nblean"
+Issues = "https://github.com/kaanrkaraman/nblean/issues"
+
+[project.scripts]
+nblean = "nblean:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "CPY", "FIX", "TD", "COM812"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/nblean/cli.py" = ["T201"]
+"src/nblean/kernel.py" = ["S603"]
+"src/nblean/process.py" = ["S603", "S607", "FBT003"]
+"src/nblean/render.py" = ["RUF001"]
+"tests/**" = ["S101", "PLR2004", "INP001"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+enable_error_code = ["redundant-expr", "possibly-undefined", "ignore-without-code"]
+
+[[tool.mypy.overrides]]
+module = ["jupyter_client.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+xfail_strict = true
