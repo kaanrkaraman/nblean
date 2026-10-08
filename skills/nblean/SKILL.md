@@ -7,8 +7,8 @@ description: Use whenever a task touches a Jupyter notebook (.ipynb), including 
 
 Never `Read`, `cat`, `grep`, or `jq` an `.ipynb` file directly: it loads every output,
 every base64 image, and every progress-bar line. Use `nblean` instead. If it is not
-installed, stop and ask the user to install it (`brew install kaanrkaraman/tap/nblean`,
-`uv tool install nblean`, or `cargo install nblean`). Do not install it yourself.
+installed, stop and ask the user to install it; the install options are listed at
+https://github.com/kaanrkaraman/nblean#installation. Do not install it yourself.
 
 ## Navigate
 
