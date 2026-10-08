@@ -217,11 +217,12 @@ fn output_texts(outputs: &[Value]) -> Vec<String> {
 }
 
 fn skill_dir(agent: Agent) -> PathBuf {
-    match agent {
-        Agent::Claude => PathBuf::from(".claude/skills"),
-        Agent::Codex | Agent::Opencode => PathBuf::from(".agents/skills"),
-        Agent::Gemini | Agent::All => PathBuf::from(".gemini/skills"),
-    }
+    let home = match agent {
+        Agent::Claude => ".claude",
+        Agent::Codex | Agent::Opencode => ".agents",
+        Agent::Gemini | Agent::All => ".gemini",
+    };
+    Path::new(home).join("skills")
 }
 
 fn cmd_init(agents: &[Agent], project: bool) -> anyhow::Result<u8> {
