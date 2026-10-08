@@ -87,8 +87,6 @@ brew install kaanrkaraman/tap/nblean      # Homebrew
 cargo install nblean                      # crates.io
 ```
 
-You can also run it without installing: `uvx nblean outline nb.ipynb`.
-
 nblean is a single Rust binary. The PyPI package ships prebuilt wheels for macOS
 (Apple Silicon and Intel), Linux (x86_64 and aarch64), and Windows (x64), so
 installing it does not pull in any Python dependencies. On other platforms pip builds
